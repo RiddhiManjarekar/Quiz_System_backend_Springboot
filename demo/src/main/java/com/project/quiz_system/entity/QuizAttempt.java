@@ -40,6 +40,8 @@ public class QuizAttempt {
     private Boolean passed;
 
     @CreationTimestamp
+    private LocalDateTime startedAt;
+    @CreationTimestamp
     private LocalDateTime createdAt;
 
     @UpdateTimestamp

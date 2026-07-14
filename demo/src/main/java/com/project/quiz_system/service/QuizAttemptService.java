@@ -8,9 +8,7 @@ import com.project.quiz_system.enums.AttemptStatus;
 import com.project.quiz_system.enums.QuizStatus;
 import com.project.quiz_system.mapper.StudentQuizMapper;
 import com.project.quiz_system.repository.*;
-//import com.project.quiz_system.repository.QuizRepository;
-//import com.project.quiz_system.repository.QuestionRepository;
-//import com.project.quiz_system.repository.QuestionOptionRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +46,8 @@ public class QuizAttemptService {
 
     private final EvaluationService evaluationService;
 
+    private final StudentQuizMapper studentQuizMapper;
+
     public StartQuizResponse startQuiz(Long quizId) {
 
         User student =
@@ -82,18 +82,29 @@ public class QuizAttemptService {
             );
         }
 
-        boolean attempted =
-                quizAttemptRepository.existsByQuizAndStudent(
-                        quiz,
-                        student
+        QuizAttempt previous =
+                quizAttemptRepository
+                        .findByQuizAndStudent(quiz, student)
+                        .orElse(null);
+
+        if(previous != null){
+
+            if(previous.getStatus()==AttemptStatus.SUBMITTED){
+                throw new BadRequestException(
+                        "You have already attempted this quiz."
                 );
+            }
 
-        if (attempted) {
-
-            throw new BadRequestException(
-                    "You have already attempted this quiz."
-            );
+            return StartQuizResponse.builder()
+                    .attemptId(previous.getId())
+                    .quizId(quiz.getId())
+                    .quizTitle(quiz.getTitle())
+                    .durationMinutes(quiz.getDurationMinutes())
+                    .status(previous.getStatus())
+                    .message("Quiz already in progress.")
+                    .build();
         }
+
 
         QuizAttempt attempt = QuizAttempt.builder()
                 .quiz(quiz)
@@ -116,6 +127,109 @@ public class QuizAttemptService {
                 )
                 .status(savedAttempt.getStatus())
                 .message("Quiz started successfully.")
+                .build();
+
+    }
+
+    public ExistingAttemptResponse checkExistingAttempt(
+            Long quizId
+    ){
+
+        User student =
+                authenticatedUserService.getCurrentUser();
+
+        Quiz quiz =
+                quizRepository.findById(quizId)
+                        .orElseThrow(()->
+                                new ResourceNotFoundException(
+                                        "Quiz not found."
+                                ));
+
+        QuizAttempt attempt =
+                quizAttemptRepository
+                        .findByQuizAndStudentAndStatus(
+                                quiz,
+                                student,
+                                AttemptStatus.IN_PROGRESS
+                        )
+                        .orElse(null);
+
+        if(attempt==null){
+
+            return ExistingAttemptResponse.builder()
+                    .exists(false)
+                    .attemptId(null)
+                    .build();
+
+        }
+
+        return ExistingAttemptResponse.builder()
+                .exists(true)
+                .attemptId(attempt.getId())
+                .build();
+
+    }
+
+    public ResumeAttemptResponse resumeAttempt(
+            Long attemptId
+    ){
+
+        User student =
+                authenticatedUserService.getCurrentUser();
+
+        QuizAttempt attempt =
+                quizAttemptRepository
+                        .findByIdAndStudent(
+                                attemptId,
+                                student
+                        )
+                        .orElseThrow(()->
+                                new ResourceNotFoundException(
+                                        "Attempt not found."
+                                ));
+
+        if(attempt.getStatus()!=AttemptStatus.IN_PROGRESS){
+
+            throw new BadRequestException(
+                    "Quiz already submitted."
+            );
+
+        }
+
+        Quiz quiz = attempt.getQuiz();
+        if(
+                quiz.getEndTime()!=null &&
+                        LocalDateTime.now().isAfter(quiz.getEndTime())
+        ){
+
+            throw new BadRequestException(
+                    "Quiz has already ended."
+            );
+
+        }
+
+        long remainingSeconds =
+                quiz.getDurationMinutes()*60L
+                        -
+                        java.time.Duration.between(
+                                attempt.getStartedAt(),
+                                LocalDateTime.now()
+                        ).getSeconds();
+
+        if (remainingSeconds <= 0) {
+
+            throw new BadRequestException(
+                    "Quiz time has expired."
+            );
+
+        }
+
+        return ResumeAttemptResponse.builder()
+                .attemptId(attempt.getId())
+                .quiz(
+                        studentQuizMapper.toResponse(quiz)
+                )
+                .remainingSeconds(remainingSeconds)
                 .build();
 
     }

@@ -20,7 +20,7 @@ public class JwtService{
                 .setSubject(email)
                 .setIssuedAt(new Date())
                 .setExpiration(
-                        new Date(System.currentTimeMillis()+1000*60*60)
+                        new Date(System.currentTimeMillis()+1000*60*60*24)
                 )
                 .signWith(key,SignatureAlgorithm.HS256)
                 .compact();

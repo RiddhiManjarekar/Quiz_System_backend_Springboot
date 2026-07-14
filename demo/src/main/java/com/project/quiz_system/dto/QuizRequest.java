@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 @Getter
 @Setter
@@ -22,7 +23,7 @@ public class QuizRequest {
     private Integer durationMinutes;
 
     @NotNull
-    @Positive
+    @PositiveOrZero
     private Integer passingMarks;
 
     private LocalDateTime startTime;
