@@ -8,9 +8,12 @@ import com.project.quiz_system.enums.*;
 import com.project.quiz_system.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.project.quiz_system.dto.PendingEvaluationResponse;
+import com.project.quiz_system.dto.EvaluationAttemptResponse;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -25,24 +28,122 @@ public class TeacherEvaluationService {
     private final EvaluationService evaluationService;
 
 
-    public List<DescriptiveAnswerResponse>
-    getPendingDescriptiveAnswers() {
+    public List<PendingEvaluationResponse>
+    getPendingAttempts() {
 
         User teacher =
                 authenticatedUserService.getCurrentUser();
 
-        return studentAnswerRepository
-                .findPendingDescriptiveAnswers(teacher)
+        List<StudentAnswer> answers =
+                studentAnswerRepository
+                        .findPendingDescriptiveAnswers(
+                                teacher
+                        );
+
+        return answers.stream()
+
+                .collect(Collectors.groupingBy(
+                        a -> a.getAttempt().getId()
+                ))
+
+                .values()
+
                 .stream()
-                .map(this::mapToResponse)
+
+                .map(group -> {
+
+                    StudentAnswer first = group.get(0);
+
+                    return PendingEvaluationResponse.builder()
+                            .attemptId(first.getAttempt().getId())
+                            .studentName(first.getAttempt().getStudent().getName())
+                            .quizTitle(first.getAttempt().getQuiz().getTitle())
+                            .pendingAnswers(group.size())
+                            .currentScore(first.getAttempt().getScore())
+                            .build();
+
+                })
+
                 .toList();
+
     }
+
+    public EvaluationAttemptResponse
+    getAttemptForEvaluation(
+            Long attemptId
+    ) {
+        QuizAttempt attempt =
+                quizAttemptRepository
+                        .findById(attemptId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Attempt not found."
+                                ));
+        User teacher =
+                authenticatedUserService.getCurrentUser();
+
+        if (!attempt.getQuiz()
+                .getTeacher()
+                .getId()
+                .equals(teacher.getId())) {
+
+            throw new BadRequestException(
+                    "Unauthorized access."
+            );
+
+        }
+        List<DescriptiveAnswerResponse> answers =
+                studentAnswerRepository
+                        .findByAttempt(attempt)
+                        .stream()
+
+                        .filter(a ->
+                                a.getQuestion()
+                                        .getQuestionType()
+                                        ==
+                                        QuestionType.DESCRIPTIVE
+                        )
+
+                        .map(this::mapToResponse)
+
+                        .toList();
+        return EvaluationAttemptResponse.builder()
+
+                .attemptId(
+                        attempt.getId()
+                )
+
+                .studentName(
+                        attempt.getStudent().getName()
+                )
+
+                .quizTitle(
+                        attempt.getQuiz().getTitle()
+                )
+
+                .totalMarks(
+                        attempt.getQuiz()
+                                .getTotalMarks()
+                                .doubleValue()
+                )
+
+                .currentScore(
+                        attempt.getScore()
+                )
+
+                .answers(
+                        answers
+                )
+
+                .build();
+    }
+
 
     @Transactional
     public EvaluationResponse evaluateAnswer(
             Long studentAnswerId,
             EvaluationRequest request
-    ){
+    ) {
         StudentAnswer answer =
                 studentAnswerRepository
                         .findById(studentAnswerId)
@@ -65,12 +166,7 @@ public class TeacherEvaluationService {
                     "Only descriptive answers can be evaluated."
             );
         }
-        if (answer.getMarksObtained() != null) {
 
-            throw new BadRequestException(
-                    "Answer has already been evaluated."
-            );
-        }
 
         User teacher =
                 authenticatedUserService.getCurrentUser();
@@ -93,7 +189,7 @@ public class TeacherEvaluationService {
                     "Marks exceed question marks."
             );
         }
-        if(request.getMarksObtained() < 0){
+        if (request.getMarksObtained() < 0) {
 
             throw new BadRequestException(
                     "Marks cannot be negative."
@@ -154,7 +250,7 @@ public class TeacherEvaluationService {
 
     private void recalculateAttempt(
             QuizAttempt attempt
-    ){
+    ) {
         List<StudentAnswer> answers =
                 studentAnswerRepository
                         .findByAttempt(attempt);

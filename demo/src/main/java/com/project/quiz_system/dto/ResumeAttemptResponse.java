@@ -15,6 +15,7 @@ public class ResumeAttemptResponse {
     private StudentQuizResponse quiz;
 
     private LocalDateTime startedAt;
+
     private Long remainingSeconds;
 
 }

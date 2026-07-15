@@ -52,9 +52,10 @@ public class StudentQuizService {
 
                 // Student hasn't attempted
                 .filter(quiz ->
-                        !quizAttemptRepository.existsByQuizAndStudent(
+                        !quizAttemptRepository.existsByQuizAndStudentAndStatus(
                                 quiz,
-                                student
+                                student,
+                                AttemptStatus.SUBMITTED
                         )
                 )
 
@@ -100,18 +101,17 @@ public class StudentQuizService {
             );
         }
 
-        boolean attempted =
-                quizAttemptRepository.existsByQuizAndStudent(
-                        quiz,
-                        student
-                );
+        QuizAttempt attempt =
+                quizAttemptRepository
+                        .findByQuizAndStudent(quiz, student)
+                        .orElse(null);
 
-        if (attempted) {
+        if (attempt != null &&
+                attempt.getStatus() == AttemptStatus.SUBMITTED) {
 
             throw new BadRequestException(
                     "You have already attempted this quiz."
             );
-
         }
 
         return studentQuizMapper.toResponse(quiz);
