@@ -38,5 +38,10 @@ public interface QuizAttemptRepository
             User student,
             AttemptStatus status
     );
+    boolean existsByQuizAndStudentAndStatus(
+            Quiz quiz,
+            User student,
+            AttemptStatus status
+    );
 
 }

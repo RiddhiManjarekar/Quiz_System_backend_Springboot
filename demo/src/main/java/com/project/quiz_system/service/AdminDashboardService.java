@@ -3,6 +3,7 @@ package com.project.quiz_system.service;
 import com.project.quiz_system.dto.AdminDashboardResponse;
 import com.project.quiz_system.entity.Role;
 import com.project.quiz_system.enums.QuizStatus;
+import com.project.quiz_system.exception.ResourceNotFoundException;
 import com.project.quiz_system.enums.Status;
 import com.project.quiz_system.repository.QuizAttemptRepository;
 import com.project.quiz_system.repository.QuizRepository;
@@ -10,8 +11,7 @@ import com.project.quiz_system.repository.RoleRepository;
 import com.project.quiz_system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import com.project.quiz_system.exception.BadRequestException;
-import com.project.quiz_system.exception.ResourceNotFoundException;
+
 @Service
 @RequiredArgsConstructor
 public class AdminDashboardService {

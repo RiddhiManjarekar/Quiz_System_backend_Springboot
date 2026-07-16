@@ -2,8 +2,10 @@ package com.project.quiz_system.service;
 
 import com.project.quiz_system.dto.StudentQuizResponse;
 import com.project.quiz_system.entity.Quiz;
+import com.project.quiz_system.entity.QuizAttempt;
 import com.project.quiz_system.entity.User;
 import com.project.quiz_system.enums.QuizStatus;
+import com.project.quiz_system.enums.AttemptStatus;
 import com.project.quiz_system.mapper.StudentQuizMapper;
 import com.project.quiz_system.repository.QuizAttemptRepository;
 import com.project.quiz_system.repository.QuizRepository;
