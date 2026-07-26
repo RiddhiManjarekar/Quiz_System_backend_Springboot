@@ -177,13 +177,9 @@ public class QuizAttemptService {
         User student =
                 authenticatedUserService.getCurrentUser();
 
-        QuizAttempt attempt =
-                quizAttemptRepository
-                        .findByIdAndStudent(
-                                attemptId,
-                                student
-                        )
-                        .orElseThrow(()->
+        QuizAttempt attempt = quizAttemptRepository
+                              .findByIdAndStudent(attemptId, student)
+                              .orElseThrow(()->
                                 new ResourceNotFoundException(
                                         "Attempt not found."
                                 ));
@@ -202,9 +198,7 @@ public class QuizAttemptService {
                         LocalDateTime.now().isAfter(quiz.getEndTime())
         ){
 
-            throw new BadRequestException(
-                    "Quiz has already ended."
-            );
+            throw new BadRequestException("Quiz has already ended.");
 
         }
 
@@ -245,14 +239,11 @@ public class QuizAttemptService {
         QuizAttempt attempt = quizAttemptRepository
                 .findByIdAndStudent(attemptId, student)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Quiz attempt not found."
-                        ));
+                        new ResourceNotFoundException("Quiz attempt not found.")
+                );
 
         if (attempt.getStatus() != AttemptStatus.IN_PROGRESS) {
-            throw new BadRequestException(
-                    "Quiz has already been submitted."
-            );
+            throw new BadRequestException("Quiz has already been submitted.");
         }
 
         double totalScore = 0.0;
@@ -262,9 +253,7 @@ public class QuizAttemptService {
         for (StudentAnswerRequest answerRequest : request.getAnswers()) {
             if (!answeredQuestions.add(answerRequest.getQuestionId())) {
 
-                throw new BadRequestException(
-                        "Duplicate question submitted."
-                );
+                throw new BadRequestException("Duplicate question submitted.");
 
             }
             totalScore += saveStudentAnswer(
@@ -274,10 +263,7 @@ public class QuizAttemptService {
 
         }
 
-        updateAttemptResult(
-                attempt,
-                totalScore
-        );
+        updateAttemptResult(attempt, totalScore);
 
         return SubmitQuizResponse.builder()
                 .attemptId(attempt.getId())
@@ -296,14 +282,11 @@ public class QuizAttemptService {
         Question question = questionRepository
                 .findById(request.getQuestionId())
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Question not found."
-                        ));
+                        new ResourceNotFoundException("Question not found.")
+                );
         if (!question.getQuiz().getId().equals(attempt.getQuiz().getId())) {
 
-            throw new BadRequestException(
-                    "Question does not belong to this quiz."
-            );
+            throw new BadRequestException("Question does not belong to this quiz.");
 
         }
 
@@ -325,9 +308,7 @@ public class QuizAttemptService {
 
             if(request.getSelectedOptionIds()!=null){
 
-                throw new BadRequestException(
-                        "Descriptive question cannot have selected options."
-                );
+                throw new BadRequestException("Descriptive question cannot have selected options.");
             }
             studentAnswer.setCorrect(null);
             studentAnswer.setMarksObtained(null);
@@ -345,22 +326,15 @@ public class QuizAttemptService {
                 &&
                 request.getDescriptiveAnswer()!=null){
 
-            throw new BadRequestException(
-                    "Objective question cannot have descriptive answer."
-            );
+            throw new BadRequestException("Objective question cannot have descriptive answer.");
 
         }
 
-        List<Long> optionIds =
-                request.getSelectedOptionIds();
+        List<Long> optionIds = request.getSelectedOptionIds();
 
         if (optionIds == null || optionIds.isEmpty()) {
 
-            EvaluationResult result =
-                    evaluationService.evaluateQuestion(
-                            question,
-                            List.of()
-                    );
+            EvaluationResult result = evaluationService.evaluateQuestion(question, List.of());
 
             studentAnswer.setCorrect(
                     result.getCorrect()
@@ -381,16 +355,10 @@ public class QuizAttemptService {
                         optionIds
                 );
         if (selectedOptions.size() != optionIds.size()) {
-            throw new BadRequestException(
-                    "One or more selected options are invalid."
-            );
+            throw new BadRequestException("One or more selected options are invalid.");
         }
 
-        EvaluationResult result =
-                evaluationService.evaluateQuestion(
-                        question,
-                        selectedOptions
-                );
+        EvaluationResult result = evaluationService.evaluateQuestion(question, selectedOptions);
 
         studentAnswer.setCorrect(
                 result.getCorrect()

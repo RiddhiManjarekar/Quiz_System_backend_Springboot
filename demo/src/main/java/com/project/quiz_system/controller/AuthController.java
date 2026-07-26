@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.project.quiz_system.dto.ChangePasswordRequest;
+import com.project.quiz_system.dto.ForgotPasswordRequest;
+import com.project.quiz_system.dto.ResetPasswordRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -52,4 +55,56 @@ public class AuthController {
                         .build()
         );
     }
+
+    @PatchMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+
+        authService.changePassword(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Password changed successfully.")
+                        .data(null)
+                        .errors(null)
+                        .build()
+        );
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+
+        authService.forgotPassword(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("If an account exists with this email, a password reset link has been sent.")
+                        .data(null)
+                        .errors(null)
+                        .build()
+        );
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+
+        authService.resetPassword(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Password reset successfully.")
+                        .data(null)
+                        .errors(null)
+                        .build()
+        );
+    }
+
 }

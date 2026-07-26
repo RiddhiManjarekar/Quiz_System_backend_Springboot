@@ -79,8 +79,7 @@ public class QuestionOptionService {
             );
         }
 
-        boolean exists =
-                optionRepository.existsByQuestionAndOptionTextIgnoreCase(
+        boolean exists = optionRepository.existsByQuestionAndOptionTextIgnoreCase(
                         question,
                         request.getOptionText()
                 );

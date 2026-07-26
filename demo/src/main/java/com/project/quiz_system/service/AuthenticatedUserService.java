@@ -26,8 +26,7 @@ public class AuthenticatedUserService {
 
         return userRepository.findByEmail(email)
                 .orElseThrow(()->
-                        new ResourceNotFoundException(
-                                "Authenticated user not found"
-                        ));
+                        new ResourceNotFoundException("Authenticated user not found")
+                );
     }
 }

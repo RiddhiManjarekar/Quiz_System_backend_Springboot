@@ -17,6 +17,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import com.project.quiz_system.dto.ChangePasswordRequest;
+import com.project.quiz_system.dto.ForgotPasswordRequest;
+import com.project.quiz_system.dto.ResetPasswordRequest;
+import org.springframework.beans.factory.annotation.Value;
+import java.time.LocalDateTime;
+import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
+
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +38,13 @@ public class AuthService{
     private final JwtService jwtService;
 
     private final AuthenticationManager authenticationManager;
+
+    private final AuthenticatedUserService authenticatedUserService;
+
+    private final EmailService emailService;
+
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
 
     public void register(RegisterRequest request) {
 
@@ -74,11 +89,9 @@ public class AuthService{
         );
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found."
-                        )
-                );
+                    .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found.")
+                    );
 
         String token = jwtService.generateToken(user.getEmail());
 
@@ -89,5 +102,132 @@ public class AuthService{
                 .role(user.getRole().getRoleName())
                 .token(token)
                 .build();
+    }
+
+    @Transactional
+    public void changePassword(ChangePasswordRequest request){
+        User user=authenticatedUserService.getCurrentUser();
+        if (
+                !passwordEncoder.matches(
+                        request.getCurrentPassword(),
+                        user.getPassword()
+                )
+        ) {
+            throw new BadRequestException(
+                    "Current password is incorrect."
+            );
+        }
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+
+            throw new BadRequestException(
+                    "New password and confirm password do not match."
+            );
+        }
+        if (
+                passwordEncoder.matches(
+                        request.getNewPassword(),
+                        user.getPassword()
+                )
+        ) {
+
+            throw new BadRequestException(
+                    "New password must be different from current password."
+            );
+
+        }
+        user.setPassword(
+                passwordEncoder.encode(
+                        request.getNewPassword()
+                )
+        );
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+
+        User user = userRepository
+                .findByEmail(request.getEmail())
+                .orElse(null);
+
+        // Never reveal whether the email exists
+        if (user == null) {
+            return;
+        }
+
+        String token = UUID.randomUUID().toString();
+
+        user.setResetPasswordToken(token);
+
+        user.setResetPasswordTokenExpiry(
+                LocalDateTime.now().plusMinutes(30)
+        );
+
+
+        String resetLink =
+                frontendUrl + "/reset-password?token=" + token;
+
+        emailService.sendPasswordResetEmail(
+                user.getEmail(),
+                user.getName(),
+                resetLink
+        );
+
+        userRepository.save(user);
+
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+
+        User user = userRepository
+                .findByResetPasswordToken(request.getToken())
+                .orElseThrow(() ->
+                        new BadRequestException(
+                                "Invalid reset password token."
+                        )
+                );
+
+
+        if (
+                user.getResetPasswordTokenExpiry() == null ||
+                        user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())
+        ) {
+
+            throw new BadRequestException(
+                    "Reset password link has expired."
+            );
+        }
+
+        if (!request.getNewPassword().equals(
+                request.getConfirmPassword()
+        )) {
+
+            throw new BadRequestException(
+                    "New password and confirm password do not match."
+            );
+        }
+
+        if (passwordEncoder.matches(
+                request.getNewPassword(),
+                user.getPassword()
+        )) {
+
+            throw new BadRequestException(
+                    "New password must be different from the current password."
+            );
+        }
+
+        user.setPassword(
+                passwordEncoder.encode(
+                        request.getNewPassword()
+                )
+        );
+
+        // Clear token after successful reset
+        user.setResetPasswordToken(null);
+        user.setResetPasswordTokenExpiry(null);
+
+        userRepository.save(user);
     }
 }

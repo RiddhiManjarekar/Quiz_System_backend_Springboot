@@ -72,15 +72,12 @@ public class TeacherEvaluationService {
     getAttemptForEvaluation(
             Long attemptId
     ) {
-        QuizAttempt attempt =
-                quizAttemptRepository
-                        .findById(attemptId)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Attempt not found."
-                                ));
-        User teacher =
-                authenticatedUserService.getCurrentUser();
+        QuizAttempt attempt = quizAttemptRepository
+                              .findById(attemptId)
+                              .orElseThrow(() ->
+                                new ResourceNotFoundException("Attempt not found.")
+                              );
+        User teacher = authenticatedUserService.getCurrentUser();
 
         if (!attempt.getQuiz()
                 .getTeacher()
