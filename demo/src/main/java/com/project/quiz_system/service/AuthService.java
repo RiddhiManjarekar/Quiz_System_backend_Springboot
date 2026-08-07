@@ -21,14 +21,16 @@ import com.project.quiz_system.dto.ChangePasswordRequest;
 import com.project.quiz_system.dto.ForgotPasswordRequest;
 import com.project.quiz_system.dto.ResetPasswordRequest;
 import org.springframework.beans.factory.annotation.Value;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
-import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.mail.MailException;
 
 @Service
 @RequiredArgsConstructor
-public class AuthService{
+public class AuthService {
     private final UserRepository userRepository;
 
     private final RoleRepository roleRepository;
@@ -51,6 +53,7 @@ public class AuthService{
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new BadRequestException("Email already exists.");
         }
+
 
         Role role = roleRepository.findByRoleName(
                 request.getRole().toUpperCase()
@@ -89,9 +92,16 @@ public class AuthService{
         );
 
         User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() ->
-                        new ResourceNotFoundException("User not found.")
-                    );
+                .orElseThrow(() ->
+                        new BadRequestException(
+                                "Invalid email or password."
+                        )
+                );
+        if (user.getStatus() != Status.ACTIVE) {
+            throw new BadRequestException(
+                    "Your account is inactive."
+            );
+        }
 
         String token = jwtService.generateToken(user.getEmail());
 
@@ -105,8 +115,8 @@ public class AuthService{
     }
 
     @Transactional
-    public void changePassword(ChangePasswordRequest request){
-        User user=authenticatedUserService.getCurrentUser();
+    public void changePassword(ChangePasswordRequest request) {
+        User user = authenticatedUserService.getCurrentUser();
         if (
                 !passwordEncoder.matches(
                         request.getCurrentPassword(),
@@ -151,29 +161,55 @@ public class AuthService{
                 .orElse(null);
 
         // Never reveal whether the email exists
-        if (user == null) {
+        if (user == null || user.getStatus() != Status.ACTIVE) {
             return;
         }
+        if (
+                user.getLastResetRequest() != null &&
+                        user.getLastResetRequest()
+                                .plusMinutes(2)
+                                .isAfter(LocalDateTime.now())
+        ) {
 
-        String token = UUID.randomUUID().toString();
-
-        user.setResetPasswordToken(token);
-
-        user.setResetPasswordTokenExpiry(
-                LocalDateTime.now().plusMinutes(30)
-        );
+            return;
+        }
+        user.setLastResetRequest(LocalDateTime.now());
 
 
-        String resetLink =
-                frontendUrl + "/reset-password?token=" + token;
+        String token = user.getResetPasswordToken();
 
-        emailService.sendPasswordResetEmail(
-                user.getEmail(),
-                user.getName(),
-                resetLink
-        );
+        if (token == null ||
+                user.getResetPasswordTokenExpiry() == null ||
+                user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
 
-        userRepository.save(user);
+            token = UUID.randomUUID().toString();
+
+            user.setResetPasswordToken(token);
+            user.setResetPasswordTokenExpiry(
+                    LocalDateTime.now().plusMinutes(30)
+            );
+        }
+            String resetLink =
+                    frontendUrl +
+                            "/reset-password?token=" +
+                            token;
+
+
+            userRepository.save(user);
+            try {
+
+                emailService.sendPasswordResetEmail(
+                        user.getEmail(),
+                        user.getName(),
+                        resetLink
+                );
+
+            } catch (MailException ex) {
+
+                throw new BadRequestException(
+                        "Unable to send email. Please try again later."
+                );
+            }
 
     }
 
@@ -187,7 +223,13 @@ public class AuthService{
                                 "Invalid reset password token."
                         )
                 );
+        if(user.getStatus()!=Status.ACTIVE){
 
+            throw new BadRequestException(
+                    "Account is inactive."
+            );
+
+        }
 
         if (
                 user.getResetPasswordTokenExpiry() == null ||
@@ -227,7 +269,33 @@ public class AuthService{
         // Clear token after successful reset
         user.setResetPasswordToken(null);
         user.setResetPasswordTokenExpiry(null);
+        user.setLastResetRequest(null);
 
         userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public void validatePasswordResetToken(String token) {
+
+        User user = userRepository
+                .findByResetPasswordToken(token)
+                .orElseThrow(() ->
+                        new BadRequestException("Invalid token."));
+
+        if (user.getStatus() != Status.ACTIVE) {
+            throw new BadRequestException(
+                    "Account is inactive."
+            );
+        }
+        if (
+                user.getResetPasswordTokenExpiry() == null ||
+                        user.getResetPasswordTokenExpiry()
+                                .isBefore(LocalDateTime.now())
+        ) {
+            throw new BadRequestException(
+                    "Reset link expired."
+            );
+        }
+       
     }
 }

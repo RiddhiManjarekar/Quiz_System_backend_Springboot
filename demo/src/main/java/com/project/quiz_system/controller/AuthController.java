@@ -107,4 +107,21 @@ public class AuthController {
         );
     }
 
+    @GetMapping("/validate-reset-token")
+    public ResponseEntity<ApiResponse<Void>> validatePasswordResetToken(
+            @RequestParam String token
+    ) {
+
+        authService.validatePasswordResetToken(token);
+
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Token is valid.")
+                        .data(null)
+                        .errors(null)
+                        .build()
+        );
+    }
+
 }

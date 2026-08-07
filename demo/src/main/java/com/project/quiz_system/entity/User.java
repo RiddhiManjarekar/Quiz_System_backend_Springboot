@@ -58,4 +58,6 @@ public class User{
     private String resetPasswordToken;
 
     private LocalDateTime resetPasswordTokenExpiry;
+
+    private LocalDateTime lastResetRequest;
 }
